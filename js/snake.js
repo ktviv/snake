@@ -15,6 +15,10 @@ const PLAY_AREA_HEIGHT = PLAY_FIELD_SCALE_FACTOR * BLOCK_SIZE;
 const SPRITE_BRICK = document.getElementById("sprite_brick");
 const SPRITE_BLOCK = document.getElementById("sprite_block");
 const SPRITE_FOOD = document.getElementById("sprite_food");
+const SPRITE_GRASS_L = document.getElementById("sprite_left_grass");
+const SPRITE_GRASS_R = document.getElementById("sprite_right_grass");
+const SPRITE_GRASS_T = document.getElementById("sprite_top_grass");
+const SPRITE_GRASS_B = document.getElementById("sprite_bottom_grass");
 
 
 const SNAKE = [];
@@ -104,6 +108,11 @@ class snakeFood {
 
     reset() {
 
+        var x = Utils.randInt(0, PLAY_FIELD_SCALE_FACTOR, true);
+        var y = Utils.randInt(0, PLAY_FIELD_SCALE_FACTOR, true);
+        this.xPos = BORDER_WIDTH + BLOCK_SIZE + (x * BLOCK_SIZE);
+        this.yPos = BORDER_WIDTH + BLOCK_SIZE + (y * BLOCK_SIZE);
+        this.draw();
     }
 }
 
@@ -181,7 +190,7 @@ var initialized = false;
 var gameOver = false;
 var paused = false;
 var speed = 60;
-var speedCounter = 1;
+var speedCounter = 10;
 var score = 0;
 var food = null;
 var playField = null;
@@ -213,7 +222,10 @@ function draw() {
     }
 }
 
-draw();
+Promise.all(Array.from(document.images).filter(img => !img.complete).map(img => new Promise(resolve => { img.onload = img.onerror = resolve; }))).then(() => {
+    draw();
+});
+
 
 
 function gameOverScreen() {
@@ -255,14 +267,14 @@ function gameOverScreen() {
 function reset() {
 
     CONTEXT.clearRect(0, 0, CANVAS.width, CANVAS.height);
+    SNAKE.splice(0, SNAKE.length);
     initialized = false;
     paused = false;
-    speed = 60;
-    speedCounter = 1;
     score = 0;
     then = Date.now();
     sThen = Date.now();
     gameOver = false;
+    currentDirection = "RIGHT";
     draw();
 }
 
@@ -276,9 +288,9 @@ function initialize() {
 
 function drawBoundary() {
 
-    var _drawBlock = function(xPos, yPos, width, height) {
+    var _drawBlock = function(xPos, yPos, width, height, sprite) {
 
-        CONTEXT.drawImage(SPRITE_BRICK, xPos, yPos, width, height);
+        CONTEXT.drawImage(sprite, xPos, yPos, width, height);
     }
     var bricks = 0;
     var xPos = 0;
@@ -289,19 +301,19 @@ function drawBoundary() {
         if (i < bricks) {
 
             xPos = BORDER_WIDTH + (i * BLOCK_SIZE);
-            _drawBlock(xPos, BORDER_WIDTH, BLOCK_SIZE, BLOCK_SIZE);
+            _drawBlock(xPos, BORDER_WIDTH, BLOCK_SIZE, BLOCK_SIZE, SPRITE_GRASS_T);
 
            yPos = CANVAS.height - BORDER_WIDTH - BLOCK_SIZE;
-           _drawBlock(xPos, yPos, BLOCK_SIZE, BLOCK_SIZE);
+           _drawBlock(xPos, yPos, BLOCK_SIZE, BLOCK_SIZE, SPRITE_GRASS_B);
         }
         //draw vertical borders
         if (i > 0 && i <= (bricks - 2)) {
 
            yPos = BORDER_WIDTH + (i * BLOCK_SIZE);
-           _drawBlock(BORDER_WIDTH, yPos, BLOCK_SIZE, BLOCK_SIZE);
+           _drawBlock(BORDER_WIDTH, yPos, BLOCK_SIZE, BLOCK_SIZE, SPRITE_GRASS_L);
 
            xPos = CANVAS.width - BORDER_WIDTH - BLOCK_SIZE;
-           _drawBlock(xPos, yPos, BLOCK_SIZE, BLOCK_SIZE);
+           _drawBlock(xPos, yPos, BLOCK_SIZE, BLOCK_SIZE, SPRITE_GRASS_R);
         }
     }
 }
@@ -311,11 +323,13 @@ function initializeSnake() {
     var startX = (BORDER_WIDTH + BLOCK_SIZE + (PLAY_AREA_WIDTH / 2)) - (2 * BLOCK_SIZE);
     var startY = (BORDER_WIDTH + BLOCK_SIZE + (PLAY_AREA_HEIGHT / 2)) - (2 * BLOCK_SIZE)
     SNAKE[0] = new snakeBod(startX, startY);
+    SNAKE[1] = new snakeBod(startX - BLOCK_SIZE, startY);
+    SNAKE[2] = new snakeBod(startX - (2 * BLOCK_SIZE), startY);
 }
 
 function initializeFood() {
 
-    food = new snakeFood(2*BORDER_WIDTH, 2*BORDER_WIDTH);
+    food = new snakeFood((2 * BORDER_WIDTH), (2 * BORDER_WIDTH));
 }
 
 function initializePlayField() {
@@ -331,7 +345,7 @@ function initializePlayField() {
     CONTEXT.fillStyle = gradient;
     CONTEXT.textAlign = "start";
     CONTEXT.fillText("SCORE : " + score, BORDER_WIDTH, 2 * BLOCK_SIZE);
-    CONTEXT.fillText("LEVEL : " + speedCounter, CANVAS.width - BORDER_WIDTH - 4 * BLOCK_SIZE, 2 * BLOCK_SIZE);
+//    CONTEXT.fillText("LEVEL : " + speedCounter, CANVAS.width - BORDER_WIDTH - 4 * BLOCK_SIZE, 2 * BLOCK_SIZE);
 }
 
 
@@ -362,7 +376,6 @@ function direction(event) {
     }
 }
 
-// check collision function
 function collision(head) {
 
     for(let i = 0; i < SNAKE.length; i++) {
@@ -386,8 +399,17 @@ function runGame() { // this function will be called at the speed of FPS
     }
 }
 
+function updateScore() {
+
+    score++;
+    CONTEXT.clearRect(BORDER_WIDTH, BLOCK_SIZE, 5 * BLOCK_SIZE, 2 * BLOCK_SIZE);
+//    CONTEXT.drawImage(SPRITE_GRASS_R, BORDER_WIDTH, BLOCK_SIZE, 4 * BLOCK_SIZE, 2 * BLOCK_SIZE);
+    CONTEXT.fillText("SCORE : " + score, BORDER_WIDTH, 2 * BLOCK_SIZE);
+}
+
 function gameSpeedTick() {
-    
+
+    var ate = false;
     for( let i = 0; i < SNAKE.length ; i++) {
 
         SNAKE[i].draw();
@@ -395,45 +417,69 @@ function gameSpeedTick() {
 
     food.draw();
     
-    // old head position
     let snakeX = SNAKE[0].xPos;
     let snakeY = SNAKE[0].yPos;
     
-    // which direction
     if( currentDirection == "LEFT") snakeX -= BLOCK_SIZE;
     if( currentDirection == "UP") snakeY -= BLOCK_SIZE;
     if( currentDirection == "RIGHT") snakeX += BLOCK_SIZE;
     if( currentDirection == "DOWN") snakeY += BLOCK_SIZE;
     
-    // if the snake eats the food
     if(snakeX == food.xPos && snakeY == food.yPos) {
 
-        score++;
+//        score++;
+        updateScore();
         EAT_AUD.play();
         food.reset();
-        // we don't remove the tail
-    } else {
-        // remove the tail
+        ate = true;
+    }
+    
+
+    var tunneled = false;
+    if (snakeX < (BORDER_WIDTH + BLOCK_SIZE)) {
+
+        snakeX = CANVAS.width - BORDER_WIDTH - (2 * BLOCK_SIZE)
+        tunneled = true;
+    } else if (snakeX > (CANVAS.width - BORDER_WIDTH - (2 * BLOCK_SIZE))) {
+
+        snakeX = BORDER_WIDTH + BLOCK_SIZE;
+        tunneled = true;
+    } else if (snakeY < (BORDER_WIDTH + BLOCK_SIZE)) {
+
+        snakeY = CANVAS.height - BORDER_WIDTH - (2 * BLOCK_SIZE);
+        tunneled = true;
+    } else if (snakeY > CANVAS.height - BORDER_WIDTH - (2 * BLOCK_SIZE)) {
+
+        snakeY = BORDER_WIDTH + BLOCK_SIZE;
+        tunneled = true;
+    }
+
+    if (tunneled) {
+
+        if(snakeX == food.xPos && snakeY == food.yPos) {
+
+            score++;
+            EAT_AUD.play();
+            food.reset();
+            ate = true;
+        }
+    }
+
+    if (!ate) {
+
         var end = SNAKE.pop();
         end.clear();
     }
-    
-    // add new Head
+
     let head = new snakeBod(snakeX, snakeY);
     head.draw();
 
-    // game over
-    
-    if(snakeX < (BORDER_WIDTH + (2 * BLOCK_SIZE)) ||
-        snakeX > (CANVAS.width - BORDER_WIDTH - (3 * BLOCK_SIZE)) ||
-        snakeY < (BORDER_WIDTH + (2 * BLOCK_SIZE)) ||
-        snakeY > (CANVAS.height - BORDER_WIDTH - (3 * BLOCK_SIZE)) ||
-        collision(head)) {
+    if (collision(head)) {
 
         DEAD_AUD.play();
         gameOver = true;
         gameOverScreen();
     }
-    
+
     SNAKE.unshift(head);
 }
