@@ -12,7 +12,6 @@ const INTERVAL = 1000 / FPS;
 const BORDER_WIDTH = BLOCK_SIZE * 4;
 const PLAY_AREA_WIDTH = PLAY_FIELD_SCALE_FACTOR * BLOCK_SIZE;
 const PLAY_AREA_HEIGHT = PLAY_FIELD_SCALE_FACTOR * BLOCK_SIZE;
-const SPRITE_BRICK = document.getElementById("sprite_brick");
 const SPRITE_BLOCK = document.getElementById("sprite_block");
 const SPRITE_FOOD = document.getElementById("sprite_food");
 const SPRITE_GRASS_L = document.getElementById("sprite_left_grass");
@@ -352,10 +351,10 @@ function initializePlayField() {
 //control the snake
 
 
-document.addEventListener("keydown", direction);
+window.onkeydown = function(event) {
 
-function direction(event) {
-
+    event.preventDefault();
+    event.stopPropagation();
     let key = event.keyCode;
     if ( key == 37 && currentDirection != "RIGHT") {
 
